@@ -103,12 +103,14 @@ func getFileContent(index int) (string, error) {
 }
 
 func main() {
+	fmt.Println("Loading all files...")
 	loadAllFiles()
 	// Define the route for the API endpoint
 	http.HandleFunc("/api/supplier", sourceHandler)
 
 	// Start the HTTP server on port 8080
 	fmt.Println("Server started on port 8080")
+	fmt.Println("Endpoint is : http://localhost:8080/api/supplier?supplierId=0")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Printf("Failed to start server: %s\n", err)
 	}
