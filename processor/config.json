@@ -1,0 +1,5 @@
+{
+    "maxNoOfSuppliersForRandomness": 5,
+    "minCpuUsageInMilliseconds": 5000,
+    "maxCpuUsageInMilliseconds": 8000
+}
