@@ -98,7 +98,7 @@ func getAccomodationHandler(w http.ResponseWriter, r *http.Request) {
 // }
 
 func GetAccomodationBySupplierAsync(supplierId int) (string, error) {
-	url := +strconv.Itoa(supplierId)
+	url := supplierHostUrl + strconv.Itoa(supplierId)
 
 	resp, err := http.Get(url)
 	if err != nil {
