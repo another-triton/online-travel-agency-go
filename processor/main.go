@@ -34,9 +34,11 @@ type ProcessorSettings struct {
 	}
 }
 type Config struct {
-	MaxNoOfSuppliersForRandomness int `json:"maxNoOfSuppliersForRandomness"`
-	MinCpuUsageInMilliseconds     int `json:"minCpuUsageInMilliseconds"`
-	MaxCpuUsageInMilliseconds     int `json:"maxCpuUsageInMilliseconds"`
+	MaxNoOfSuppliersForRandomness int    `json:"maxNoOfSuppliersForRandomness"`
+	MinCpuUsageInMilliseconds     int    `json:"minCpuUsageInMilliseconds"`
+	MaxCpuUsageInMilliseconds     int    `json:"maxCpuUsageInMilliseconds"`
+	SupplierHostName              string `json:"supplierHostName"`
+	SupplierPort                  string `json:"supplierPort"`
 }
 
 var config Config
@@ -54,14 +56,17 @@ func loadConfig() (Config, error) {
 }
 
 var maxNoOfSuppliersForRandomness = 5
+var supplierHostUrl = ""
 
 func main() {
 
 	config, err := loadConfig()
-	maxNoOfSuppliersForRandomness = config.MaxNoOfSuppliersForRandomness
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %s", err)
+		return
 	}
+	supplierHostUrl = "http://" + config.SupplierHostName + ":" + config.SupplierPort + "/api/supplier?supplierId="
+	maxNoOfSuppliersForRandomness = config.MaxNoOfSuppliersForRandomness
 
 	http.HandleFunc("/get-accomodations/{id}", getAccomodationHandler)
 	fmt.Println("starting server at :8090")
@@ -93,7 +98,7 @@ func getAccomodationHandler(w http.ResponseWriter, r *http.Request) {
 // }
 
 func GetAccomodationBySupplierAsync(supplierId int) (string, error) {
-	url := "http://localhost:8080/api/supplier?supplierId=" + strconv.Itoa(supplierId)
+	url := +strconv.Itoa(supplierId)
 
 	resp, err := http.Get(url)
 	if err != nil {

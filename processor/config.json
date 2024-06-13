@@ -1,5 +1,7 @@
 {
     "maxNoOfSuppliersForRandomness": 5,
     "minCpuUsageInMilliseconds": 5000,
-    "maxCpuUsageInMilliseconds": 8000
+    "maxCpuUsageInMilliseconds": 8000,
+    "supplierHostName": "ota-supplier",
+    "supplierPort": "8080"
 }
