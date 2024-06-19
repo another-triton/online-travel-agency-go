@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ota-processor
+  name: ota-processor-service
 spec:
   selector:
-    app: processor
+    app: ota-processor
   ports:
     - protocol: TCP
       port: 80
