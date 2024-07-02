@@ -24,7 +24,8 @@ func convertStrToInt(str string) int {
 
 func sourceHandler(w http.ResponseWriter, r *http.Request) {
 
-	maxSleepSimulationTime := 5
+	//currentTime := time.Now()
+	maxSleepSimulationTime := 4
 
 	// Retrieve the integer value from the query parameter
 	integerStr := r.URL.Query().Get("supplierId")
@@ -45,7 +46,7 @@ func sourceHandler(w http.ResponseWriter, r *http.Request) {
 	// Sleep for the duration of the integer value
 	time.Sleep(time.Duration(randomInteger) * time.Second)
 
-	fmt.Println("reading file content at index: ", integer)
+	//fmt.Println("reading file content at index: ", integer)
 	// Get the file content at the index of the integer value
 	content, err := getFileContent(integer)
 
@@ -56,6 +57,7 @@ func sourceHandler(w http.ResponseWriter, r *http.Request) {
 
 	//send the var content which is a output of getFileContent as HTTP response
 	fmt.Fprintf(w, "%s", content)
+	//fmt.Println("Time taken by the supplier: ", time.Since(currentTime))
 
 }
 

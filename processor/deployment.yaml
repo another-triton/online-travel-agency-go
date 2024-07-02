@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: ota-processors
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: ota-processor
@@ -15,5 +15,6 @@ spec:
       containers:
       - name: ota-proc-container
         image: 795914468022.dkr.ecr.us-east-1.amazonaws.com/online-travel-agency:proc-latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8090

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -9,24 +12,38 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
+// Define XML structures
+type HotelFindResponse struct {
+	XMLName          xml.Name `xml:"HotelFindResponse"`
+	Time             string   `xml:"time,attr"`
+	IPAddress        string   `xml:"ipaddress,attr"`
+	Count            int      `xml:"count,attr"`
+	ArrivalDate      string   `xml:"ArrivalDate"`
+	DepartureDate    string   `xml:"DepartureDate"`
+	Currency         string   `xml:"Currency"`
+	GuestNationality string   `xml:"GuestNationality"`
+	SearchSessionId  string   `xml:"SearchSessionId"`
+	Hotels           []Hotel  `xml:"Hotels>Hotel"`
+}
+
 type Hotel struct {
-	XMLName  xml.Name `xml:"Hotel"`
-	Contents string   `xml:",innerxml"`
+	XMLName   xml.Name `xml:"Hotel"`
+	XMLString string   `xml:",innerxml"`
 }
-type Hotels struct {
-	XMLName xml.Name `xml:"Hotels"`
-	Hotels  []Hotel  `xml:"Hotel"`
+
+type HotelsSlice struct {
+	Hotels []Hotel `xml:"Hotel"` // Adjust the XML tag as necessary based on the actual XML structure
 }
-type Root struct {
-	XMLName xml.Name `xml:"root"`
-	Hotels  Hotels   `xml:"Hotels"`
-}
+
 type ProcessorSettings struct {
 	CPUUsageInMilliseconds struct {
 		Min int
@@ -41,7 +58,39 @@ type Config struct {
 	SupplierPort                  string `json:"supplierPort"`
 }
 
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	Writer *gzip.Writer
+}
+
 var config Config
+
+func gzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if false {
+			fmt.Println("skip gzip middleware")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fmt.Println("client does not support gzip encoding")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+
+		gzrw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		next.ServeHTTP(gzrw, r)
+	})
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
 
 func loadConfig() (Config, error) {
 
@@ -59,7 +108,8 @@ var maxNoOfSuppliersForRandomness = 5
 var supplierHostUrl = ""
 
 func main() {
-
+	fmt.Println("number of current go procs", runtime.GOMAXPROCS(0))
+	//runtime.GOMAXPROCS(12)
 	config, err := loadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %s", err)
@@ -68,7 +118,10 @@ func main() {
 	supplierHostUrl = "http://" + config.SupplierHostName + ":" + config.SupplierPort + "/api/supplier?supplierId="
 	maxNoOfSuppliersForRandomness = config.MaxNoOfSuppliersForRandomness
 
-	http.HandleFunc("/get-accomodations/{id}", getAccomodationHandler)
+	// Wrap your existing handler with the gzip middleware
+	compressedHandler := gzipMiddleware(http.HandlerFunc(getAccomodationHandler))
+
+	http.Handle("/get-accomodations/{id}", compressedHandler)
 	fmt.Println("starting server at :8090")
 
 	if err := http.ListenAndServe(":8090", nil); err != nil {
@@ -79,23 +132,17 @@ func main() {
 
 func getAccomodationHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract the ID from the URL parameters
-
+	//currentTime := time.Now()
+	//fmt.Println("get accomodation handler called")
 	result, err := GetAccomodations()
 	if err != nil {
 		http.Error(w, "Error getting accomodations", http.StatusInternalServerError)
 		return
 	}
+	//fmt.Println("Time taken to get accomodations: ", time.Since(currentTime))
 	// For now, just write the ID back to the client
 	fmt.Fprintf(w, "%s", result)
 }
-
-// type ProcessorSettings struct {
-// 	MaxNoOfSupplier int
-// }
-
-// type SupplierClient interface {
-// 	GetAccomodationBySupplierAsync(int) (string, error)
-// }
 
 func GetAccomodationBySupplierAsync(supplierId int) (string, error) {
 	url := supplierHostUrl + strconv.Itoa(supplierId)
@@ -132,7 +179,9 @@ func GetAccomodations() (string, error) {
 		wg.Add(1)
 		go func(i, supplier int) {
 			defer wg.Done()
+			//currentTime := time.Now()
 			res, err := GetAccomodationBySupplierAsync(supplier)
+			//fmt.Println("Time taken to get accomodation from supplier: ", supplier, time.Since(currentTime))
 			if err != nil {
 				fmt.Println(err)
 				return
@@ -142,57 +191,79 @@ func GetAccomodations() (string, error) {
 	}
 	wg.Wait()
 
-	hotelCount := 0
-	var result strings.Builder
-	result.WriteString("<HotelFindResponse time=\"0.21500015258789\" ipaddress=\"14.140.153.130\" count=\"0\">\r\n    <ArrivalDate>01/06/2024</ArrivalDate>\r\n    <DepartureDate>10/06/2024</DepartureDate>\r\n    <Currency>INR</Currency>\r\n    <GuestNationality>IN</GuestNationality>\r\n    <SearchSessionId>17168872488751716887248949665</SearchSessionId><Hotels>")
-	for _, xmlStr := range results {
-		var root Root
-		err := xml.Unmarshal([]byte("<root>"+xmlStr+"</root>"), &root)
-		if err != nil {
-			fmt.Println(err)
-			return "", err
-		}
-		hotelCount += len(root.Hotels.Hotels)
-		fmt.Println("hotel count: ", hotelCount)
-		for _, hotel := range root.Hotels.Hotels {
-			hotelXML, err := xml.Marshal(hotel)
-			if err != nil {
-				fmt.Println(err)
-				return "", err
-			}
-			//fmt.Println("hotel xml is: ", string(hotelXML))
-			result.WriteString(string(hotelXML))
-		}
+	//hotelCount := 0
+	xmlTemplate := "<HotelFindResponse time=\"0.21500015258789\" ipaddress=\"14.140.153.130\" count=\"0\">\r\n    <ArrivalDate>01/06/2024</ArrivalDate>\r\n    <DepartureDate>10/06/2024</DepartureDate>\r\n    <Currency>INR</Currency>\r\n    <GuestNationality>IN</GuestNationality>\r\n    <SearchSessionId>17168872488751716887248949665</SearchSessionId><Hotels></Hotels></HotelFindResponse>"
+	response := HotelFindResponse{}
+	err := xml.Unmarshal([]byte(xmlTemplate), &response)
+	if err != nil {
+		fmt.Println("Error unmarshalling XML template:", err)
+		return "", err
 	}
-	result.WriteString("\r\n</Hotels>\r\n</HotelFindResponse>")
-	finalResult := replaceAtIndex(result.String(), strconv.Itoa(hotelCount), 60)
+	for _, result := range results {
+		hotels := HotelsSlice{}
+		err := xml.Unmarshal([]byte(result), &hotels)
+		if err != nil {
+			fmt.Println("Error unmarshalling result:", err)
+			continue
+		}
+		//fmt.Println("hotels: ", hotels)
+		response.Hotels = append(response.Hotels, hotels.Hotels...)
+	}
+
+	response.Count = len(response.Hotels)
+
+	output, err := xml.MarshalIndent(response, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshalling XML:", err)
+		return "", err
+	}
+
+	finalResult := string(output)
+	//fmt.Println("finalResult: ", finalResult)
 	simulateCpuUsage(&finalResult)
 	return finalResult, nil
 }
 
-func replaceAtIndex(in, value string, i int) string {
-	out := []rune(in)
-	for j := 0; j < len(value); j++ {
-		out[i+j] = rune(value[j])
-	}
-	return string(out)
-}
-
 func simulateCpuUsage(xmlDocument *string) {
 
-	var mergedDoc []string
-	minCpuUsageInMilliseconds := config.MinCpuUsageInMilliseconds
 	maxCpuUsageInMilliseconds := config.MaxCpuUsageInMilliseconds
 
 	//rand.Seed(time.Now().UnixNano())
-	loopTillTime := time.Now().Add(time.Duration(rand.Intn(maxCpuUsageInMilliseconds-minCpuUsageInMilliseconds)+minCpuUsageInMilliseconds) * time.Millisecond)
+	loopTillTime := time.Now().Add(
+		time.Duration(rand.Intn(maxCpuUsageInMilliseconds)) * time.Millisecond)
 
+	loopCounter := 0
 	if xmlDocument != nil {
 		for time.Now().Before(loopTillTime) {
-			mergedDoc = append(mergedDoc, *xmlDocument)
+			//mergedDoc = append(mergedDoc, *xmlDocument)
+			//get the hash code of the xmlDocument
+			hashXMLDocument(xmlDocument)
+			loopCounter++
 		}
 	}
+	//fmt.Println("loopCounter: ", loopCounter)
 
-	mergedDoc = nil
-	xmlDocument = nil
+	//mergedDoc = nil
+	//xmlDocument = nil
+}
+
+func hashXMLDocument(xmlDocument *string) string {
+	if xmlDocument == nil {
+		return ""
+	}
+	//now := time.Now()
+	// Calculate the number of 100-nanosecond intervals since January 1, 1970 (Unix epoch)
+	//ticksSinceEpoch := now.UnixNano() / 100
+	// Calculate the number of 100-nanosecond intervals between January 1, 0001, and January 1, 1970
+	// 621355968000000000 is the number of ticks from January 1, 0001 to January 1, 1970
+	//ticks := ticksSinceEpoch + 621355968000000000
+	text := *xmlDocument + createNewGUID()
+	hasher := sha256.New()
+	hasher.Write([]byte(text))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func createNewGUID() string {
+	newGUID := uuid.New()
+	return newGUID.String()
 }
