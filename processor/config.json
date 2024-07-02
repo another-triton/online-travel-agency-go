@@ -3,5 +3,5 @@
     "minCpuUsageInMilliseconds": 0,
     "maxCpuUsageInMilliseconds": 3000,
     "supplierHostName": "ota-supplier-service",
-    "supplierPort": "8080"
+    "supplierPort": "80"
 }
