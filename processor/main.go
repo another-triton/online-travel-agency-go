@@ -51,6 +51,7 @@ type ProcessorSettings struct {
 	}
 }
 type Config struct {
+	MinNoOfSuppliersForRandomness int    `json:"minNoOfSuppliersForRandomness"`
 	MaxNoOfSuppliersForRandomness int    `json:"maxNoOfSuppliersForRandomness"`
 	MinCpuUsageInMilliseconds     int    `json:"minCpuUsageInMilliseconds"`
 	MaxCpuUsageInMilliseconds     int    `json:"maxCpuUsageInMilliseconds"`
@@ -67,11 +68,11 @@ var config Config
 
 func gzipMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if false {
-			fmt.Println("skip gzip middleware")
-			next.ServeHTTP(w, r)
-			return
-		}
+		// if false {
+		// 	fmt.Println("skip gzip middleware")
+		// 	next.ServeHTTP(w, r)
+		// 	return
+		// }
 
 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 			fmt.Println("client does not support gzip encoding")
@@ -104,8 +105,11 @@ func loadConfig() (Config, error) {
 	return config, nil
 }
 
-var maxNoOfSuppliersForRandomness = 5
+var minNoOfSuppliersForRandomness = 3
+var maxNoOfSuppliersForRandomness = 6
 var supplierHostUrl = ""
+var minCpuUsageForSimulation = 500
+var maxCpuUsageForSimulation = 1000
 
 func main() {
 	fmt.Println("number of current go procs", runtime.GOMAXPROCS(0))
@@ -116,7 +120,11 @@ func main() {
 		return
 	}
 	supplierHostUrl = "http://" + config.SupplierHostName + ":" + config.SupplierPort + "/api/supplier?supplierId="
+	minNoOfSuppliersForRandomness = config.MinNoOfSuppliersForRandomness
 	maxNoOfSuppliersForRandomness = config.MaxNoOfSuppliersForRandomness
+
+	minCpuUsageForSimulation = config.MinCpuUsageInMilliseconds
+	maxCpuUsageForSimulation = config.MaxCpuUsageInMilliseconds
 
 	// Wrap your existing handler with the gzip middleware
 	compressedHandler := gzipMiddleware(http.HandlerFunc(getAccomodationHandler))
@@ -161,14 +169,22 @@ func GetAccomodationBySupplierAsync(supplierId int) (string, error) {
 	return string(body), nil
 }
 
+func randomBetween(min, max int) int {
+	// if min >= max {
+	// 	return 0, fmt.Errorf("invalid range: %d >= %d", min, max)
+	// }
+	n := rand.Intn(max - min)
+	return n + min
+}
+
 func GetAccomodations() (string, error) {
 	supplierList := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
-	maxNoOfSupplier := rand.Intn(maxNoOfSuppliersForRandomness) + 1
+	numberOfSuppliers := randomBetween(minNoOfSuppliersForRandomness, maxNoOfSuppliersForRandomness)
 	supplierFromIndex := rand.Intn(len(supplierList))
 
-	suppliers := make([]int, maxNoOfSupplier)
-	for i := 0; i < maxNoOfSupplier; i++ {
+	suppliers := make([]int, numberOfSuppliers)
+	for i := 0; i < numberOfSuppliers; i++ {
 		suppliers[i] = supplierList[supplierFromIndex]
 		supplierFromIndex = (supplierFromIndex + 1) % len(supplierList)
 	}
@@ -226,11 +242,8 @@ func GetAccomodations() (string, error) {
 
 func simulateCpuUsage(xmlDocument *string) {
 
-	maxCpuUsageInMilliseconds := config.MaxCpuUsageInMilliseconds
-
-	//rand.Seed(time.Now().UnixNano())
 	loopTillTime := time.Now().Add(
-		time.Duration(rand.Intn(maxCpuUsageInMilliseconds)) * time.Millisecond)
+		time.Duration(randomBetween(minCpuUsageForSimulation, maxCpuUsageForSimulation)) * time.Millisecond)
 
 	loopCounter := 0
 	if xmlDocument != nil {

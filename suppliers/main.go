@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io/fs"
 	"log"
@@ -8,19 +9,51 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"time"
 )
 
 var filesContent []string
 
-func convertStrToInt(str string) int {
-	num, err := strconv.Atoi(str)
-	if err != nil {
-		return 0
-	}
-	return num
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	Writer *gzip.Writer
 }
+
+func gzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// if true {
+		// 	fmt.Println("skip gzip middleware")
+		// 	next.ServeHTTP(w, r)
+		// 	return
+		// }
+
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fmt.Println("client does not support gzip encoding")
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Encoding", "gzip")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+
+		gzrw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+		next.ServeHTTP(gzrw, r)
+	})
+}
+
+func (w gzipResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
+// func convertStrToInt(str string) int {
+// 	num, err := strconv.Atoi(str)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	return num
+// }
 
 func sourceHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -28,17 +61,18 @@ func sourceHandler(w http.ResponseWriter, r *http.Request) {
 	maxSleepSimulationTime := 4
 
 	// Retrieve the integer value from the query parameter
-	integerStr := r.URL.Query().Get("supplierId")
+	// integerStr := r.URL.Query().Get("supplierId")
 
-	// Check if the integer value is provided
-	if integerStr == "" {
-		http.Error(w, "Integer value is missing", http.StatusBadRequest)
-		return
-	}
+	// // Check if the integer value is provided
+	// if integerStr == "" {
+	// 	http.Error(w, "Integer value is missing", http.StatusBadRequest)
+	// 	return
+	// }
 
-	// convert string to integer and return 0 if input string is not a valid integer
+	// // convert string to integer and return 0 if input string is not a valid integer
 
-	integer := convertStrToInt(integerStr)
+	// integer := convertStrToInt(integerStr)
+	randomFileIndex := rand.Intn(len(filesContent))
 
 	//get a random number between 1 and 5 without any seed
 	var randomInteger = rand.Intn(maxSleepSimulationTime) + 1
@@ -48,7 +82,7 @@ func sourceHandler(w http.ResponseWriter, r *http.Request) {
 
 	//fmt.Println("reading file content at index: ", integer)
 	// Get the file content at the index of the integer value
-	content, err := getFileContent(integer)
+	content, err := getFileContent(randomFileIndex)
 
 	if err != nil {
 		http.Error(w, "Error getting file content", http.StatusInternalServerError)
@@ -107,8 +141,12 @@ func getFileContent(index int) (string, error) {
 func main() {
 	fmt.Println("Loading all files...")
 	loadAllFiles()
+
+	// Wrap your existing handler with the gzip middleware
+	compressedHandler := gzipMiddleware(http.HandlerFunc(sourceHandler))
+
 	// Define the route for the API endpoint
-	http.HandleFunc("/api/supplier", sourceHandler)
+	http.Handle("/api/supplier", compressedHandler)
 
 	// Start the HTTP server on port 8080
 	fmt.Println("Server starting on port 8080")
