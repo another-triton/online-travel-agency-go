@@ -3,6 +3,6 @@
     "maxNoOfSuppliersForRandomness": 5,
     "minCpuUsageInMilliseconds": 500,
     "maxCpuUsageInMilliseconds": 1000,
-    "supplierHostName": "ota-supplier-service",
-    "supplierPort": "80"
+    "adapterHostName": "ota-adapter-service",
+    "adapterPort": "9000"
 }

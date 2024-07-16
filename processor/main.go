@@ -55,8 +55,8 @@ type Config struct {
 	MaxNoOfSuppliersForRandomness int    `json:"maxNoOfSuppliersForRandomness"`
 	MinCpuUsageInMilliseconds     int    `json:"minCpuUsageInMilliseconds"`
 	MaxCpuUsageInMilliseconds     int    `json:"maxCpuUsageInMilliseconds"`
-	SupplierHostName              string `json:"supplierHostName"`
-	SupplierPort                  string `json:"supplierPort"`
+	AdapterHostName               string `json:"adapterHostName"`
+	AdapterPort                   string `json:"adapterPort"`
 }
 
 type gzipResponseWriter struct {
@@ -107,7 +107,7 @@ func loadConfig() (Config, error) {
 
 var minNoOfSuppliersForRandomness = 2
 var maxNoOfSuppliersForRandomness = 5
-var supplierHostUrl = ""
+var adapterHostUrl = ""
 var minCpuUsageForSimulation = 500
 var maxCpuUsageForSimulation = 1000
 
@@ -119,7 +119,7 @@ func main() {
 		log.Fatalf("Failed to load configuration: %s", err)
 		return
 	}
-	supplierHostUrl = "http://" + config.SupplierHostName + ":" + config.SupplierPort + "/api/supplier?supplierId="
+	adapterHostUrl = "http://" + config.AdapterHostName + ":" + config.AdapterPort + "/adapter/supplier?supplierId="
 	minNoOfSuppliersForRandomness = config.MinNoOfSuppliersForRandomness
 	maxNoOfSuppliersForRandomness = config.MaxNoOfSuppliersForRandomness
 
@@ -155,7 +155,7 @@ func getAccomodationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAccomodationBySupplierAsync(supplierId int) (string, error) {
-	url := supplierHostUrl + strconv.Itoa(supplierId)
+	url := adapterHostUrl + strconv.Itoa(supplierId)
 
 	resp, err := http.Get(url)
 	if err != nil {
