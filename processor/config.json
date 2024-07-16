@@ -1,6 +1,6 @@
 {
-    "minNoOfSuppliersForRandomness": 3,
-    "maxNoOfSuppliersForRandomness": 6,
+    "minNoOfSuppliersForRandomness": 2,
+    "maxNoOfSuppliersForRandomness": 5,
     "minCpuUsageInMilliseconds": 500,
     "maxCpuUsageInMilliseconds": 1000,
     "supplierHostName": "ota-supplier-service",

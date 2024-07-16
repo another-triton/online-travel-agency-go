@@ -1,0 +1,4 @@
+{
+    "supplierHostName": "ota-supplier-service",
+    "supplierPort": "8080"
+}

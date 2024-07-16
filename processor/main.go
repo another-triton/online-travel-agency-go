@@ -105,8 +105,8 @@ func loadConfig() (Config, error) {
 	return config, nil
 }
 
-var minNoOfSuppliersForRandomness = 3
-var maxNoOfSuppliersForRandomness = 6
+var minNoOfSuppliersForRandomness = 2
+var maxNoOfSuppliersForRandomness = 5
 var supplierHostUrl = ""
 var minCpuUsageForSimulation = 500
 var maxCpuUsageForSimulation = 1000
@@ -127,9 +127,11 @@ func main() {
 	maxCpuUsageForSimulation = config.MaxCpuUsageInMilliseconds
 
 	// Wrap your existing handler with the gzip middleware
-	compressedHandler := gzipMiddleware(http.HandlerFunc(getAccomodationHandler))
+	//compressedHandler := gzipMiddleware(http.HandlerFunc(getAccomodationHandler))
+	//http.Handle("/get-accomodations/{id}", compressedHandler)
 
-	http.Handle("/get-accomodations/{id}", compressedHandler)
+	http.HandleFunc("/get-accomodations/{id}", getAccomodationHandler)
+
 	fmt.Println("starting server at :8090")
 
 	if err := http.ListenAndServe(":8090", nil); err != nil {
@@ -234,9 +236,10 @@ func GetAccomodations() (string, error) {
 		return "", err
 	}
 
-	finalResult := string(output)
 	//fmt.Println("finalResult: ", finalResult)
-	simulateCpuUsage(&finalResult)
+	simulateCpuUsage(&results[0])
+
+	finalResult := string(output)
 	return finalResult, nil
 }
 

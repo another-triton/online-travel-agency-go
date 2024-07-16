@@ -143,10 +143,10 @@ func main() {
 	loadAllFiles()
 
 	// Wrap your existing handler with the gzip middleware
-	compressedHandler := gzipMiddleware(http.HandlerFunc(sourceHandler))
-
+	//compressedHandler := gzipMiddleware(http.HandlerFunc(sourceHandler))
 	// Define the route for the API endpoint
-	http.Handle("/api/supplier", compressedHandler)
+	//http.Handle("/api/supplier", compressedHandler)
+	http.HandleFunc("/api/supplier", sourceHandler)
 
 	// Start the HTTP server on port 8080
 	fmt.Println("Server starting on port 8080")
