@@ -14,11 +14,8 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // Define XML structures
@@ -66,32 +63,32 @@ type gzipResponseWriter struct {
 
 var config Config
 
-func gzipMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// if false {
-		// 	fmt.Println("skip gzip middleware")
-		// 	next.ServeHTTP(w, r)
-		// 	return
-		// }
+// func gzipMiddleware(next http.Handler) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		// if false {
+// 		// 	fmt.Println("skip gzip middleware")
+// 		// 	next.ServeHTTP(w, r)
+// 		// 	return
+// 		// }
 
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			fmt.Println("client does not support gzip encoding")
-			next.ServeHTTP(w, r)
-			return
-		}
+// 		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+// 			fmt.Println("client does not support gzip encoding")
+// 			next.ServeHTTP(w, r)
+// 			return
+// 		}
 
-		w.Header().Set("Content-Encoding", "gzip")
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
+// 		w.Header().Set("Content-Encoding", "gzip")
+// 		gz := gzip.NewWriter(w)
+// 		defer gz.Close()
 
-		gzrw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
-		next.ServeHTTP(gzrw, r)
-	})
-}
+// 		gzrw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
+// 		next.ServeHTTP(gzrw, r)
+// 	})
+// }
 
-func (w gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
+// func (w gzipResponseWriter) Write(b []byte) (int, error) {
+// 	return w.Writer.Write(b)
+// }
 
 func loadConfig() (Config, error) {
 
@@ -230,7 +227,7 @@ func GetAccomodations() (string, error) {
 
 	response.Count = len(response.Hotels)
 
-	output, err := xml.MarshalIndent(response, "", "  ")
+	output, err := xml.Marshal(response)
 	if err != nil {
 		fmt.Println("Error marshalling XML:", err)
 		return "", err
@@ -273,13 +270,13 @@ func hashXMLDocument(xmlDocument *string) string {
 	// Calculate the number of 100-nanosecond intervals between January 1, 0001, and January 1, 1970
 	// 621355968000000000 is the number of ticks from January 1, 0001 to January 1, 1970
 	//ticks := ticksSinceEpoch + 621355968000000000
-	text := *xmlDocument + createNewGUID()
+	text := *xmlDocument //+ createNewGUID()
 	hasher := sha256.New()
 	hasher.Write([]byte(text))
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func createNewGUID() string {
-	newGUID := uuid.New()
-	return newGUID.String()
-}
+// func createNewGUID() string {
+// 	newGUID := uuid.New()
+// 	return newGUID.String()
+// }
